@@ -37,7 +37,7 @@ label {
 
 .hint { font-weight: 400; text-transform: none; letter-spacing: 0; opacity: 0.8; }
 
-input[type="text"], textarea, input[type="file"] {
+input[type="text"], textarea, input[type="file"], input[type="datetime-local"] {
   width: 100%;
   padding: 12px 14px;
   border: 1px solid var(--secondary-bg);
@@ -50,7 +50,11 @@ input[type="text"], textarea, input[type="file"] {
   transition: border-color 0.15s;
 }
 
-input[type="text"]:focus, textarea:focus {
+input[type="datetime-local"] {
+  margin-top: 8px;
+}
+
+input[type="text"]:focus, textarea:focus, input[type="datetime-local"]:focus {
   border-color: var(--button);
 }
 
@@ -250,6 +254,27 @@ textarea { resize: vertical; min-height: 120px; }
 
 .btn-publish { background: #34c759 !important; color: white !important; }
 .btn-reject { background: #ff3b30 !important; color: white !important; }
+.btn-schedule { background: #ff9500 !important; color: white !important; }
+
+/* Стили для блока выбора времени */
+.schedule-box {
+  margin-top: 10px;
+  padding: 10px;
+  background: var(--bg);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.schedule-box button {
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  background: var(--button);
+  color: var(--button-text);
+  font-weight: 600;
+  cursor: pointer;
+}
 
 .stat-grid {
   display: grid;
