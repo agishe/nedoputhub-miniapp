@@ -41,7 +41,7 @@ async function api(path, method, body) {
   }
 
   const resp = await fetch(url, opts);
-  return resp.json().catch(function () { return { ok: false, error: 'bad_json' }; });
+  return resp.json().catch(function () { return { ok: false, error: 'bad_json', detail: 'Ошибка чтения ответа сервера' }; });
 }
 
 async function uploadFile(file) {
@@ -57,12 +57,12 @@ async function boot() {
   tg.expand();
   try {
     const auth = await api('/mini/auth', 'POST', {});
-    if (!auth.ok) throw new Error('auth: ' + (auth.error || '?'));
+    if (!auth.ok) throw new Error(auth.detail || auth.error || 'auth failed');
     state.user = auth.user;
     renderUserBar();
 
     const menu = await api('/mini/menu');
-    if (!menu.ok) throw new Error('menu: ' + (menu.error || '?'));
+    if (!menu.ok) throw new Error(menu.detail || menu.error || 'menu failed');
     state.catalogs.categories = menu.categories || [];
     state.catalogs.countries = menu.countries || [];
     renderCatalogs();
@@ -220,8 +220,6 @@ function bindSubmitForm() {
     btn.disabled = true;
     try {
       const media = await uploadMedia(files, res);
-      
-      // Обновленный текст ожидания
       res.textContent = 'Отправка (это может занять до 30 секунд)...';
       
       const custom = $('geo-custom').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
@@ -239,7 +237,7 @@ function bindSubmitForm() {
          if (submit.error === 'too_long_media') throw new Error('Текст с медиа не может превышать 1024 символа.');
          if (submit.error === 'too_long_text') throw new Error('Текст не может превышать 4096 символов.');
          if (submit.error === 'timeout') throw new Error('Сервер не ответил вовремя. Возможно, пост ушел на проверку, проверь чат с ботом.');
-         throw new Error(submit.error || '?');
+         throw new Error(submit.detail || submit.error || 'Ошибка сервера');
       }
 
       res.className = 'result ok';
@@ -289,7 +287,7 @@ function bindSubmitForm() {
         publish_at: ts
       });
       
-      if (!submit.ok) throw new Error(submit.error || '?');
+      if (!submit.ok) throw new Error(submit.detail || submit.error || 'Ошибка сервера');
 
       res.className = 'result ok';
       res.textContent = '✅ Пост успешно отложен!';
@@ -349,7 +347,7 @@ async function loadModeration() {
   el.innerHTML = '<div class="spinner small"></div>';
   try {
     const data = await api('/mini/admin/moderation/list?page=0');
-    if (!data.ok) throw new Error(data.error);
+    if (!data.ok) throw new Error(data.detail || data.error);
     if (!data.items.length) {
       el.innerHTML = '<p class="empty">📭 Нет заявок</p>';
       return;
@@ -409,7 +407,7 @@ async function loadSchedule() {
   el.innerHTML = '<div class="spinner small"></div>';
   try {
     const data = await api('/mini/admin/schedule/list');
-    if (!data.ok) throw new Error(data.error);
+    if (!data.ok) throw new Error(data.detail || data.error);
     if (!data.posts.length) {
       el.innerHTML = '<p class="empty">📭 Нет отложенных постов</p>';
       return;
@@ -456,7 +454,10 @@ async function modAction(id, action, publishAt = null) {
   }
   try {
     const r = await api('/mini/admin/moderation/action', 'POST', { id: id, action: action, publish_at: publishAt });
-    if (!r.ok) throw new Error(r.error || '?');
+    if (!r.ok) {
+      const errMsg = r.detail ? r.error + ': ' + r.detail : (r.error || 'Неизвестная ошибка');
+      throw new Error(errMsg);
+    }
     tg.showAlert('Готово');
     loadModeration();
   } catch (e) {
@@ -467,7 +468,10 @@ async function modAction(id, action, publishAt = null) {
 async function schedAction(key, action, newText = null) {
   try {
     const r = await api('/mini/admin/schedule/action', 'POST', { key: key, action: action, new_text: newText });
-    if (!r.ok) throw new Error(r.error || '?');
+    if (!r.ok) {
+      const errMsg = r.detail ? r.error + ': ' + r.detail : (r.error || 'Неизвестная ошибка');
+      throw new Error(errMsg);
+    }
     tg.showAlert('Готово');
     loadSchedule();
   } catch (e) {
@@ -489,7 +493,7 @@ async function loadStats() {
 
   try {
     const d = await api('/mini/admin/stats?days=' + state.statsDays);
-    if (!d.ok) throw new Error(d.error);
+    if (!d.ok) throw new Error(d.detail || d.error);
     let html = '<div class="stat-grid">' +
       '<div class="stat-card"><div class="stat-num">' + d.total + '</div>Всего</div>' +
       '<div class="stat-card"><div class="stat-num">' + d.auto + '</div>🤖 Авто</div>' +
