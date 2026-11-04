@@ -121,6 +121,35 @@ function renderCatalogs() {
   });
 }
 
+function updateCharCounter() {
+  const text = $('text').value;
+  const files = $('files').files;
+  const hasFiles = files && files.length > 0;
+  const limit = hasFiles ? 1024 : 4096;
+  const len = text.length;
+  const counter = $('char-counter');
+  const btn = $('submit-btn');
+  const res = $('submit-result');
+
+  counter.textContent = len + ' / ' + limit;
+
+  if (len > limit) {
+    counter.classList.add('warning');
+    btn.disabled = true;
+    res.className = 'result err';
+    res.textContent = hasFiles
+      ? '❌ С фото/видео текст не может превышать 1024 символа. Сократите текст или удалите файлы.'
+      : '❌ Текст не может превышать 4096 символов. Пожалуйста, сократите его.';
+  } else {
+    counter.classList.remove('warning');
+    btn.disabled = false;
+    if (res.textContent.indexOf('❌') === 0) {
+      res.textContent = '';
+      res.className = 'result';
+    }
+  }
+}
+
 function bindSubmitForm() {
   document.querySelectorAll('.toggle[data-mode]').forEach(function (b) {
     b.onclick = function () {
@@ -132,12 +161,15 @@ function bindSubmitForm() {
     };
   });
 
+  $('text').addEventListener('input', updateCharCounter);
+
   $('files').onchange = function (e) {
     const files = Array.from(e.target.files || []);
     const prev = $('files-preview');
     prev.innerHTML = '';
     if (files.length > 10) {
       prev.innerHTML = '<span class="err">Не более 10 файлов</span>';
+      updateCharCounter();
       return;
     }
     files.forEach(function (f) {
@@ -147,6 +179,7 @@ function bindSubmitForm() {
         + ' (' + (f.size / 1024 / 1024).toFixed(1) + ' МБ)';
       prev.appendChild(d);
     });
+    updateCharCounter();
   };
 
   $('submit-btn').onclick = async function () {
@@ -184,7 +217,12 @@ function bindSubmitForm() {
         media: media,
         author_mode: state.mode
       });
-      if (!submit.ok) throw new Error(submit.error || '?');
+      
+      if (!submit.ok) {
+         if (submit.error === 'too_long_media') throw new Error('Текст с медиа не может превышать 1024 символа.');
+         if (submit.error === 'too_long_text') throw new Error('Текст не может превышать 4096 символов.');
+         throw new Error(submit.error || '?');
+      }
 
       res.className = 'result ok';
       res.textContent = '✅ Заявка принята. Жди отбивку в чате с ботом.';
@@ -196,6 +234,7 @@ function bindSubmitForm() {
       state.categories.clear();
       state.countries.clear();
       renderCatalogs();
+      updateCharCounter();
     } catch (e) {
       res.className = 'result err';
       res.textContent = '❌ ' + e.message;
