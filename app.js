@@ -10,6 +10,15 @@ const state = {
   statsDays: 7
 };
 
+const FAQ_DATA = [
+  { q: "📸 Как отправить пост?", a: "Заполни форму на вкладке «Предложить»: выбери рубрики, добавь текст и медиа, затем нажми «Отправить». Пост уйдёт на проверку ИИ, а затем либо опубликуется, либо уйдёт админу." },
+  { q: "📏 Какие лимиты на текст?", a: "Без фото/видео можно до 4096 символов. С фото/видео — до 1024 символов (ограничение Telegram)." },
+  { q: "🕵️ Что значит «Анонимно»?", a: "В посте не будет твоего имени и @username, только подпись «👤 Автор: Пользователь-аноним»." },
+  { q: "⏳ Почему пост на модерации?", a: "ИИ-модератор мог засомневаться (например, слишком короткий текст или медиа без описания). Админ проверит вручную в ближайшее время." },
+  { q: "💬 Как связаться с автором?", a: "Напиши боту в личные сообщения команду /help и выбери «Связаться с автором», либо используй кнопку в основном меню бота." },
+  { q: "📭 Почему поста нет в канале?", a: "Возможно, он ещё на модерации, отклонён админом, или не прошёл проверку на спам/офтоп." }
+];
+
 function $(id) { return document.getElementById(id); }
 function show(id) { $(id).classList.remove('hidden'); }
 function hide(id) { $(id).classList.add('hidden'); }
@@ -57,9 +66,11 @@ async function boot() {
     state.catalogs.categories = menu.categories || [];
     state.catalogs.countries = menu.countries || [];
     renderCatalogs();
+    renderFAQ();
 
     if (state.user.is_admin) {
       show('tabs');
+      show('admin-schedule-block');
       bindTabs();
     }
 
@@ -118,6 +129,16 @@ function renderCatalogs() {
       renderCatalogs();
     };
     cntEl.appendChild(b);
+  });
+}
+
+function renderFAQ() {
+  const el = $('faq-list');
+  el.innerHTML = '';
+  FAQ_DATA.forEach(function (item) {
+    const details = document.createElement('details');
+    details.innerHTML = `<summary>${esc(item.q)}</summary><p>${esc(item.a)}</p>`;
+    el.appendChild(details);
   });
 }
 
@@ -198,14 +219,7 @@ function bindSubmitForm() {
 
     btn.disabled = true;
     try {
-      const media = [];
-      for (let i = 0; i < files.length; i++) {
-        res.textContent = 'Загрузка ' + (i + 1) + '/' + files.length + '...';
-        const up = await uploadFile(files[i]);
-        if (!up.ok) throw new Error('upload: ' + (up.error || '?'));
-        media.push({ type: up.media_type, file_id: up.file_id });
-      }
-
+      const media = await uploadMedia(files, res);
       res.textContent = 'Отправка...';
       const custom = $('geo-custom').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
       const submit = await api('/mini/submit', 'POST', {
@@ -226,15 +240,7 @@ function bindSubmitForm() {
 
       res.className = 'result ok';
       res.textContent = '✅ Заявка принята. Жди отбивку в чате с ботом.';
-
-      $('text').value = '';
-      $('files').value = '';
-      $('files-preview').innerHTML = '';
-      $('geo-custom').value = '';
-      state.categories.clear();
-      state.countries.clear();
-      renderCatalogs();
-      updateCharCounter();
+      clearForm();
     } catch (e) {
       res.className = 'result err';
       res.textContent = '❌ ' + e.message;
@@ -242,6 +248,79 @@ function bindSubmitForm() {
       btn.disabled = false;
     }
   };
+
+  $('show-sched-btn').onclick = function() {
+    $('sched-inputs').classList.toggle('hidden');
+  };
+
+  $('admin-sched-confirm').onclick = async function() {
+    const btn = $('admin-sched-confirm');
+    const res = $('submit-result');
+    const dtVal = $('admin-sched-dt').value;
+    
+    if (!dtVal) return tg.showAlert('Выберите дату и время');
+    const ts = new Date(dtVal).getTime() / 1000;
+    if (ts <= Date.now()/1000) return tg.showAlert('Время должно быть в будущем');
+
+    const text = $('text').value.trim();
+    const files = Array.from($('files').files || []);
+    if (!text && files.length === 0) {
+      res.className = 'result err';
+      res.textContent = '❌ Добавь текст или медиа для отложки';
+      return;
+    }
+
+    btn.disabled = true;
+    try {
+      const media = await uploadMedia(files, res);
+      res.textContent = 'Отложка...';
+      const custom = $('geo-custom').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      const submit = await api('/mini/admin/schedule/create', 'POST', {
+        text: text,
+        categories: Array.from(state.categories),
+        countries: Array.from(state.countries),
+        countries_custom: custom,
+        cities: [],
+        media: media,
+        publish_at: ts
+      });
+      
+      if (!submit.ok) throw new Error(submit.error || '?');
+
+      res.className = 'result ok';
+      res.textContent = '✅ Пост успешно отложен!';
+      clearForm();
+      $('sched-inputs').classList.add('hidden');
+    } catch (e) {
+      res.className = 'result err';
+      res.textContent = '❌ ' + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  };
+}
+
+async function uploadMedia(files, resEl) {
+  const media = [];
+  for (let i = 0; i < files.length; i++) {
+    resEl.textContent = 'Загрузка ' + (i + 1) + '/' + files.length + '...';
+    const up = await uploadFile(files[i]);
+    if (!up.ok) throw new Error('upload: ' + (up.error || '?'));
+    media.push({ type: up.media_type, file_id: up.file_id });
+  }
+  return media;
+}
+
+function clearForm() {
+  $('text').value = '';
+  $('files').value = '';
+  $('files-preview').innerHTML = '';
+  $('geo-custom').value = '';
+  $('admin-sched-dt').value = '';
+  state.categories.clear();
+  state.countries.clear();
+  renderCatalogs();
+  updateCharCounter();
 }
 
 function bindTabs() {
