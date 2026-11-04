@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Недопутешественники</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="loading" class="screen">
+    <div class="spinner"></div>
+    <div style="text-align:center;color:var(--hint)">Загрузка...</div>
+  </div>
+
+  <div id="error" class="screen hidden">
+    <h1>❌ Ошибка</h1>
+    <p id="error-msg" class="err"></p>
+    <button onclick="location.reload()" class="primary">Обновить</button>
+  </div>
+
+  <div id="main" class="screen hidden">
+    <div class="user-bar" id="user-bar"></div>
+
+    <nav class="tabs hidden" id="tabs">
+      <button class="tab active" data-tab="submit">📸 Предложить</button>
+      <button class="tab" data-tab="moderation">📝 Модерация</button>
+      <button class="tab" data-tab="stats">📊 Статистика</button>
+    </nav>
+
+    <section id="tab-submit" class="tab-pane">
+      <h1>📸 Предложить пост</h1>
+
+      <label>Режим авторства</label>
+      <div class="toggle-group">
+        <button class="toggle active" data-mode="public">👤 С автором</button>
+        <button class="toggle" data-mode="anon">🕵️ Анонимно</button>
+      </div>
+
+      <label>Рубрики <span class="hint">(можно несколько)</span></label>
+      <div class="chips" id="cats"></div>
+
+      <label>Страны <span class="hint">(до 5)</span></label>
+      <div class="chips" id="countries"></div>
+
+      <label>Другие страны / города <span class="hint">(через запятую)</span></label>
+      <input type="text" id="geo-custom" placeholder="Например: Грузия, Тбилиси">
+
+      <label>Текст поста</label>
+      <textarea id="text" rows="6" placeholder="Расскажи о своём путешествии..."></textarea>
+
+      <label>Фото / видео <span class="hint">(до 10 файлов, ≤50 МБ каждый)</span></label>
+      <input type="file" id="files" multiple accept="image/*,video/*">
+      <div id="files-preview" class="files-preview"></div>
+
+      <button id="submit-btn" class="primary">Отправить</button>
+      <div id="submit-result" class="result"></div>
+    </section>
+
+    <section id="tab-moderation" class="tab-pane hidden">
+      <h1>📝 Заявки на модерации</h1>
+      <button id="mod-refresh" class="secondary">🔄 Обновить</button>
+      <div id="mod-list"></div>
+    </section>
+
+    <section id="tab-stats" class="tab-pane hidden">
+      <h1>📊 Статистика</h1>
+      <div class="toggle-group">
+        <button class="period-btn" data-days="1">За сегодня</button>
+        <button class="period-btn active" data-days="7">За 7 дней</button>
+        <button class="period-btn" data-days="30">За 30 дней</button>
+      </div>
+      <div id="stats-content"></div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
