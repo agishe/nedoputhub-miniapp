@@ -27,6 +27,7 @@
       <button class="tab" data-tab="moderation">📝 Модерация</button>
       <button class="tab" data-tab="schedule">⏰ Отложка</button>
       <button class="tab" data-tab="stats">📊 Статистика</button>
+      <button class="tab" data-tab="help">❓ Помощь</button>
     </nav>
 
     <section id="tab-submit" class="tab-pane">
@@ -56,6 +57,16 @@
       <div id="files-preview" class="files-preview"></div>
 
       <button id="submit-btn" class="primary">Отправить</button>
+      
+      <div id="admin-schedule-block" class="hidden" style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--secondary-bg);">
+        <button id="show-sched-btn" class="primary" style="background: #ff9500; margin-top: 0;">⏰ Отложить (для админа)</button>
+        <div id="sched-inputs" class="hidden" style="margin-top: 12px;">
+          <label>Дата и время публикации</label>
+          <input type="datetime-local" id="admin-sched-dt">
+          <button id="admin-sched-confirm" class="primary" style="background: #ff9500; margin-top: 12px;">Подтвердить отложку</button>
+        </div>
+      </div>
+      
       <div id="submit-result" class="result"></div>
     </section>
 
@@ -79,6 +90,11 @@
         <button class="period-btn" data-days="30">За 30 дней</button>
       </div>
       <div id="stats-content"></div>
+    </section>
+
+    <section id="tab-help" class="tab-pane hidden">
+      <h1>❓ Помощь</h1>
+      <div id="faq-list" class="faq-list"></div>
     </section>
   </div>
 
