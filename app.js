@@ -220,7 +220,10 @@ function bindSubmitForm() {
     btn.disabled = true;
     try {
       const media = await uploadMedia(files, res);
-      res.textContent = 'Отправка...';
+      
+      // Обновленный текст ожидания
+      res.textContent = 'Отправка (это может занять до 30 секунд)...';
+      
       const custom = $('geo-custom').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
       const submit = await api('/mini/submit', 'POST', {
         text: text,
@@ -235,11 +238,12 @@ function bindSubmitForm() {
       if (!submit.ok) {
          if (submit.error === 'too_long_media') throw new Error('Текст с медиа не может превышать 1024 символа.');
          if (submit.error === 'too_long_text') throw new Error('Текст не может превышать 4096 символов.');
+         if (submit.error === 'timeout') throw new Error('Сервер не ответил вовремя. Возможно, пост ушел на проверку, проверь чат с ботом.');
          throw new Error(submit.error || '?');
       }
 
       res.className = 'result ok';
-      res.textContent = '✅ Заявка принята. Жди отбивку в чате с ботом.';
+      res.textContent = '✅ Пост обработан! Проверь чат с ботом (там должна быть отбивка).';
       clearForm();
     } catch (e) {
       res.className = 'result err';
