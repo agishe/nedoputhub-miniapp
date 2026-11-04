@@ -299,6 +299,25 @@ textarea { resize: vertical; min-height: 120px; }
   margin-bottom: 4px;
 }
 
+/* FAQ стили */
+.faq-list { display: flex; flex-direction: column; gap: 8px; }
+details {
+  background: var(--secondary-bg);
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+details summary {
+  font-weight: 600;
+  outline: none;
+}
+details[open] summary {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--bg);
+}
+details p { font-size: 14px; opacity: 0.9; line-height: 1.5; }
+
 .spinner {
   width: 40px;
   height: 40px;
