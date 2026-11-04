@@ -25,6 +25,7 @@
     <nav class="tabs hidden" id="tabs">
       <button class="tab active" data-tab="submit">📸 Предложить</button>
       <button class="tab" data-tab="moderation">📝 Модерация</button>
+      <button class="tab" data-tab="schedule">⏰ Отложка</button>
       <button class="tab" data-tab="stats">📊 Статистика</button>
     </nav>
 
@@ -62,6 +63,12 @@
       <h1>📝 Заявки на модерации</h1>
       <button id="mod-refresh" class="secondary">🔄 Обновить</button>
       <div id="mod-list"></div>
+    </section>
+
+    <section id="tab-schedule" class="tab-pane hidden">
+      <h1>⏰ Отложенные посты</h1>
+      <button id="sched-refresh" class="secondary">🔄 Обновить</button>
+      <div id="sched-list"></div>
     </section>
 
     <section id="tab-stats" class="tab-pane hidden">
