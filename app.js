@@ -252,11 +252,13 @@ function bindTabs() {
       document.querySelectorAll('.tab-pane').forEach(function (x) { x.classList.add('hidden'); });
       show('tab-' + t.dataset.tab);
       if (t.dataset.tab === 'moderation') loadModeration();
+      if (t.dataset.tab === 'schedule') loadSchedule();
       if (t.dataset.tab === 'stats') loadStats();
     };
   });
 
   $('mod-refresh').onclick = loadModeration;
+  $('sched-refresh').onclick = loadSchedule;
 }
 
 async function loadModeration() {
@@ -282,16 +284,36 @@ async function loadModeration() {
         '<div class="mod-text">' + esc(it.text_preview || '(без текста)') + '</div>' +
         '<div class="mod-actions">' +
           '<button class="btn-publish">✅ Опубликовать</button>' +
+          '<button class="btn-schedule">⏰ Отложить</button>' +
           '<button class="btn-reject">❌ Отклонить</button>' +
           '<button class="btn-remove">🗑 Удалить</button>' +
           '<button class="btn-anon">' + (it.is_anonymous ? '👤 Показать' : '🕵️ Скрыть') + '</button>' +
         '</div>';
+      
       card.querySelector('.btn-publish').onclick = function () { modAction(it.id, 'publish'); };
       card.querySelector('.btn-reject').onclick = function () { modAction(it.id, 'reject'); };
       card.querySelector('.btn-remove').onclick = function () { modAction(it.id, 'remove'); };
       card.querySelector('.btn-anon').onclick = function () {
         modAction(it.id, it.is_anonymous ? 'anon_off' : 'anon_on');
       };
+      
+      card.querySelector('.btn-schedule').onclick = function () {
+        const schedBox = document.createElement('div');
+        schedBox.className = 'schedule-box';
+        schedBox.innerHTML = `
+          <input type="datetime-local" id="dt-${it.id}">
+          <button class="confirm-sched">Запланировать</button>
+        `;
+        schedBox.querySelector('.confirm-sched').onclick = function () {
+          const val = schedBox.querySelector('input').value;
+          if (!val) return tg.showAlert('Выберите дату и время');
+          const ts = new Date(val).getTime() / 1000;
+          if (ts <= Date.now()/1000) return tg.showAlert('Время должно быть в будущем');
+          modAction(it.id, 'schedule', ts);
+        };
+        card.appendChild(schedBox);
+      };
+
       el.appendChild(card);
     });
   } catch (e) {
@@ -299,16 +321,72 @@ async function loadModeration() {
   }
 }
 
-async function modAction(id, action) {
+async function loadSchedule() {
+  const el = $('sched-list');
+  el.innerHTML = '<div class="spinner small"></div>';
+  try {
+    const data = await api('/mini/admin/schedule/list');
+    if (!data.ok) throw new Error(data.error);
+    if (!data.posts.length) {
+      el.innerHTML = '<p class="empty">📭 Нет отложенных постов</p>';
+      return;
+    }
+    el.innerHTML = '';
+    data.posts.forEach(function (it) {
+      const dt = new Date(it.publish_at * 1000).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const card = document.createElement('div');
+      card.className = 'mod-card';
+      card.innerHTML =
+        '<div class="mod-head">' +
+          '<strong>⏰ ' + dt + '</strong>' +
+          (it.has_photo ? '<span class="badge">📸</span>' : '') +
+        '</div>' +
+        '<div class="mod-text">' + esc(it.text || '(без текста)') + '</div>' +
+        '<div class="mod-actions">' +
+          '<button class="btn-edit">✏️ Изменить текст</button>' +
+          '<button class="btn-remove">🗑 Удалить</button>' +
+        '</div>';
+      
+      card.querySelector('.btn-edit').onclick = function () {
+        const newText = prompt('Введите новый текст поста:', it.text);
+        if (newText !== null && newText !== it.text) {
+          schedAction(it.key, 'edit', newText);
+        }
+      };
+      
+      card.querySelector('.btn-remove').onclick = async function () {
+        const ok = await tg.showConfirm('Удалить отложенный пост?');
+        if (ok) schedAction(it.key, 'delete');
+      };
+      
+      el.appendChild(card);
+    });
+  } catch (e) {
+    el.innerHTML = '<p class="err">Ошибка: ' + esc(e.message) + '</p>';
+  }
+}
+
+async function modAction(id, action, publishAt = null) {
   if (action === 'reject' || action === 'remove') {
     const ok = await tg.showConfirm(action === 'reject' ? 'Отклонить заявку?' : 'Удалить из очереди?');
     if (!ok) return;
   }
   try {
-    const r = await api('/mini/admin/moderation/action', 'POST', { id: id, action: action });
+    const r = await api('/mini/admin/moderation/action', 'POST', { id: id, action: action, publish_at: publishAt });
     if (!r.ok) throw new Error(r.error || '?');
     tg.showAlert('Готово');
     loadModeration();
+  } catch (e) {
+    tg.showAlert('Ошибка: ' + e.message);
+  }
+}
+
+async function schedAction(key, action, newText = null) {
+  try {
+    const r = await api('/mini/admin/schedule/action', 'POST', { key: key, action: action, new_text: newText });
+    if (!r.ok) throw new Error(r.error || '?');
+    tg.showAlert('Готово');
+    loadSchedule();
   } catch (e) {
     tg.showAlert('Ошибка: ' + e.message);
   }
