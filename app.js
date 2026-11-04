@@ -435,9 +435,9 @@ async function loadSchedule() {
         }
       };
       
-      card.querySelector('.btn-remove').onclick = async function () {
-        const ok = await tg.showConfirm('Удалить отложенный пост?');
-        if (ok) schedAction(it.key, 'delete');
+      card.querySelector('.btn-remove').onclick = function () {
+        if (!window.confirm('Удалить отложенный пост?')) return;
+        schedAction(it.key, 'delete');
       };
       
       el.appendChild(card);
@@ -447,10 +447,11 @@ async function loadSchedule() {
   }
 }
 
+// ⚠️ ИСПРАВЛЕНО: используем window.confirm вместо tg.showConfirm
 async function modAction(id, action, publishAt = null) {
   if (action === 'reject' || action === 'remove') {
-    const ok = await tg.showConfirm(action === 'reject' ? 'Отклонить заявку?' : 'Удалить из очереди?');
-    if (!ok) return;
+    const msg = action === 'reject' ? 'Отклонить заявку?' : 'Удалить из очереди?';
+    if (!window.confirm(msg)) return;
   }
   try {
     const r = await api('/mini/admin/moderation/action', 'POST', { id: id, action: action, publish_at: publishAt });
