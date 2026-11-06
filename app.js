@@ -28,6 +28,39 @@ function esc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// ============ УТИЛИТЫ ДЛЯ UI / ДИАЛОГОВ ============
+// window.confirm / window.prompt в Telegram WebApp не работают — используем tg.showConfirm.
+function tgConfirm(message) {
+  return new Promise(function (resolve) {
+    try {
+      if (tg && typeof tg.showConfirm === 'function') {
+        tg.showConfirm(message, function (ok) { resolve(!!ok); });
+      } else if (typeof window.confirm === 'function') {
+        resolve(window.confirm(message));
+      } else {
+        resolve(false);
+      }
+    } catch (e) {
+      resolve(false);
+    }
+  });
+}
+
+function setBtnLoading(btn, loading) {
+  if (!btn) return;
+  if (loading) {
+    if (!btn.dataset.origText) btn.dataset.origText = btn.textContent;
+    btn.textContent = '⏳...';
+    btn.disabled = true;
+  } else {
+    if (btn.dataset.origText) {
+      btn.textContent = btn.dataset.origText;
+      delete btn.dataset.origText;
+    }
+    btn.disabled = false;
+  }
+}
+
 async function api(path, method, body) {
   const initData = tg.initData || '';
   let url = WORKER_URL + path;
@@ -221,7 +254,7 @@ function bindSubmitForm() {
     try {
       const media = await uploadMedia(files, res);
       res.textContent = 'Отправка (это может занять до 30 секунд)...';
-      
+
       const custom = $('geo-custom').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
       const submit = await api('/mini/submit', 'POST', {
         text: text,
@@ -232,7 +265,7 @@ function bindSubmitForm() {
         media: media,
         author_mode: state.mode
       });
-      
+
       if (!submit.ok) {
          if (submit.error === 'too_long_media') throw new Error('Текст с медиа не может превышать 1024 символа.');
          if (submit.error === 'too_long_text') throw new Error('Текст не может превышать 4096 символов.');
@@ -259,7 +292,7 @@ function bindSubmitForm() {
     const btn = $('admin-sched-confirm');
     const res = $('submit-result');
     const dtVal = $('admin-sched-dt').value;
-    
+
     if (!dtVal) return tg.showAlert('Выберите дату и время');
     const ts = new Date(dtVal).getTime() / 1000;
     if (ts <= Date.now()/1000) return tg.showAlert('Время должно быть в будущем');
@@ -286,7 +319,7 @@ function bindSubmitForm() {
         media: media,
         publish_at: ts
       });
-      
+
       if (!submit.ok) throw new Error(submit.detail || submit.error || 'Ошибка сервера');
 
       res.className = 'result ok';
@@ -370,28 +403,43 @@ async function loadModeration() {
           '<button class="btn-remove">🗑 Удалить</button>' +
           '<button class="btn-anon">' + (it.is_anonymous ? '👤 Показать' : '🕵️ Скрыть') + '</button>' +
         '</div>';
-      
-      card.querySelector('.btn-publish').onclick = function () { modAction(it.id, 'publish'); };
-      card.querySelector('.btn-reject').onclick = function () { modAction(it.id, 'reject'); };
-      card.querySelector('.btn-remove').onclick = function () { modAction(it.id, 'remove'); };
+
+      card.querySelector('.btn-publish').onclick = function () { modAction(this, it.id, 'publish'); };
+      card.querySelector('.btn-reject').onclick = function () { modAction(this, it.id, 'reject'); };
+      card.querySelector('.btn-remove').onclick = function () { modAction(this, it.id, 'remove'); };
       card.querySelector('.btn-anon').onclick = function () {
-        modAction(it.id, it.is_anonymous ? 'anon_off' : 'anon_on');
+        modAction(this, it.id, it.is_anonymous ? 'anon_off' : 'anon_on');
       };
-      
+
       card.querySelector('.btn-schedule').onclick = function () {
+        if (card.querySelector('.schedule-box')) return;
         const schedBox = document.createElement('div');
         schedBox.className = 'schedule-box';
-        schedBox.innerHTML = `
-          <input type="datetime-local" id="dt-${it.id}">
-          <button class="confirm-sched">Запланировать</button>
-        `;
-        schedBox.querySelector('.confirm-sched').onclick = function () {
-          const val = schedBox.querySelector('input').value;
-          if (!val) return tg.showAlert('Выберите дату и время');
-          const ts = new Date(val).getTime() / 1000;
-          if (ts <= Date.now()/1000) return tg.showAlert('Время должно быть в будущем');
-          modAction(it.id, 'schedule', ts);
+
+        const input = document.createElement('input');
+        input.type = 'datetime-local';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'confirm-sched';
+        saveBtn.textContent = 'Запланировать';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'cancel-sched';
+        cancelBtn.textContent = 'Отмена';
+        cancelBtn.style.background = 'var(--secondary-bg)';
+        cancelBtn.style.color = 'var(--text)';
+
+        saveBtn.onclick = function () {
+          if (!input.value) return tg.showAlert('Выберите дату и время');
+          const ts = new Date(input.value).getTime() / 1000;
+          if (ts <= Date.now() / 1000) return tg.showAlert('Время должно быть в будущем');
+          modAction(saveBtn, it.id, 'schedule', ts);
         };
+        cancelBtn.onclick = function () { schedBox.remove(); };
+
+        schedBox.appendChild(input);
+        schedBox.appendChild(saveBtn);
+        schedBox.appendChild(cancelBtn);
         card.appendChild(schedBox);
       };
 
@@ -427,19 +475,40 @@ async function loadSchedule() {
           '<button class="btn-edit">✏️ Изменить текст</button>' +
           '<button class="btn-remove">🗑 Удалить</button>' +
         '</div>';
-      
+
       card.querySelector('.btn-edit').onclick = function () {
-        const newText = prompt('Введите новый текст поста:', it.text);
-        if (newText !== null && newText !== it.text) {
-          schedAction(it.key, 'edit', newText);
-        }
+        if (card.querySelector('.schedule-box')) return;
+        const editor = document.createElement('div');
+        editor.className = 'schedule-box';
+
+        const ta = document.createElement('textarea');
+        ta.rows = 4;
+        ta.value = it.text || '';
+
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Сохранить';
+        saveBtn.style.background = '#34c759';
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Отмена';
+        cancelBtn.style.background = 'var(--secondary-bg)';
+        cancelBtn.style.color = 'var(--text)';
+
+        saveBtn.onclick = function () {
+          schedAction(saveBtn, it.key, 'edit', ta.value);
+        };
+        cancelBtn.onclick = function () { editor.remove(); };
+
+        editor.appendChild(ta);
+        editor.appendChild(saveBtn);
+        editor.appendChild(cancelBtn);
+        card.appendChild(editor);
       };
-      
+
       card.querySelector('.btn-remove').onclick = function () {
-        if (!window.confirm('Удалить отложенный пост?')) return;
-        schedAction(it.key, 'delete');
+        schedAction(this, it.key, 'delete');
       };
-      
+
       el.appendChild(card);
     });
   } catch (e) {
@@ -447,36 +516,48 @@ async function loadSchedule() {
   }
 }
 
-// ⚠️ ИСПРАВЛЕНО: используем window.confirm вместо tg.showConfirm
-async function modAction(id, action, publishAt = null) {
-  if (action === 'reject' || action === 'remove') {
-    const msg = action === 'reject' ? 'Отклонить заявку?' : 'Удалить из очереди?';
-    if (!window.confirm(msg)) return;
+async function modAction(btn, id, action, publishAt) {
+  let confirmMsg = null;
+  if (action === 'reject') confirmMsg = 'Отклонить заявку?';
+  else if (action === 'remove') confirmMsg = 'Удалить из очереди?';
+  if (confirmMsg) {
+    const ok = await tgConfirm(confirmMsg);
+    if (!ok) return;
   }
+  setBtnLoading(btn, true);
   try {
-    const r = await api('/mini/admin/moderation/action', 'POST', { id: id, action: action, publish_at: publishAt });
+    const r = await api('/mini/admin/moderation/action', 'POST', { id: id, action: action, publish_at: publishAt || null });
     if (!r.ok) {
       const errMsg = r.detail ? r.error + ': ' + r.detail : (r.error || 'Неизвестная ошибка');
       throw new Error(errMsg);
     }
     tg.showAlert('Готово');
-    loadModeration();
+    await loadModeration();
   } catch (e) {
     tg.showAlert('Ошибка: ' + e.message);
+  } finally {
+    setBtnLoading(btn, false);
   }
 }
 
-async function schedAction(key, action, newText = null) {
+async function schedAction(btn, key, action, newText) {
+  if (action === 'delete') {
+    const ok = await tgConfirm('Удалить отложенный пост?');
+    if (!ok) return;
+  }
+  setBtnLoading(btn, true);
   try {
-    const r = await api('/mini/admin/schedule/action', 'POST', { key: key, action: action, new_text: newText });
+    const r = await api('/mini/admin/schedule/action', 'POST', { key: key, action: action, new_text: newText || null });
     if (!r.ok) {
       const errMsg = r.detail ? r.error + ': ' + r.detail : (r.error || 'Неизвестная ошибка');
       throw new Error(errMsg);
     }
     tg.showAlert('Готово');
-    loadSchedule();
+    await loadSchedule();
   } catch (e) {
     tg.showAlert('Ошибка: ' + e.message);
+  } finally {
+    setBtnLoading(btn, false);
   }
 }
 
@@ -522,5 +603,17 @@ async function loadStats() {
     el.innerHTML = '<p class="err">Ошибка: ' + esc(e.message) + '</p>';
   }
 }
+
+// ============ ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ ОШИБОК ============
+window.addEventListener('unhandledrejection', function (e) {
+  try { console.error('Unhandled rejection:', e.reason); } catch (_) {}
+  try {
+    const msg = e.reason && e.reason.message ? e.reason.message : String(e.reason || 'неизвестно');
+    tg.showAlert('Ошибка: ' + msg);
+  } catch (_) {}
+});
+window.addEventListener('error', function (e) {
+  try { console.error('Window error:', e.message); } catch (_) {}
+});
 
 window.addEventListener('load', boot);
