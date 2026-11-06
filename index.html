@@ -33,6 +33,12 @@
     <section id="tab-submit" class="tab-pane">
       <h1>📸 Предложить пост</h1>
 
+      <div class="limits-note">
+        📝 <b>Как оформить пост:</b> выберите режим и рубрики, добавьте фото/видео, затем напишите текст.<br>
+        ⚠️ <b>Лимит текста зависит от медиа:</b> без файлов — до <b>4096</b> символов, с медиа — до <b>1024</b> символов (ограничение Telegram).<br>
+        📎 Файлов — до 10, каждый ≤ 50 МБ.
+      </div>
+
       <label>Режим авторства</label>
       <div class="toggle-group">
         <button class="toggle active" data-mode="public">👤 С автором</button>
@@ -48,13 +54,14 @@
       <label>Другие страны / города <span class="hint">(через запятую)</span></label>
       <input type="text" id="geo-custom" placeholder="Например: Грузия, Тбилиси">
 
-      <label>Текст поста</label>
-      <textarea id="text" rows="6" placeholder="Расскажи о своём путешествии..."></textarea>
-      <div class="char-counter" id="char-counter">0 / 4096</div>
-
       <label>Фото / видео <span class="hint">(до 10 файлов, ≤50 МБ каждый)</span></label>
       <input type="file" id="files" multiple accept="image/*,video/*">
       <div id="files-preview" class="files-preview"></div>
+      <div id="media-limit-hint" class="dynamic-hint">📝 Файлов нет — можно до <b>4096</b> символов.</div>
+
+      <label>Текст поста</label>
+      <textarea id="text" rows="6" placeholder="Расскажи о своём путешествии..."></textarea>
+      <div class="char-counter" id="char-counter">0 / 4096</div>
 
       <button id="submit-btn" class="primary">Отправить</button>
       
