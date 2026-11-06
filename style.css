@@ -72,6 +72,41 @@ textarea { resize: vertical; min-height: 120px; }
   font-weight: 600;
 }
 
+/* Плашка-напоминание про лимиты в форме */
+.limits-note {
+  background: rgba(255, 149, 0, 0.10);
+  border-left: 4px solid #ff9500;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.limits-note b { font-weight: 600; }
+
+/* Динамическая подсказка про лимит (в зависимости от медиа) */
+.dynamic-hint {
+  margin-top: 8px;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--secondary-bg);
+  color: var(--hint);
+  line-height: 1.4;
+  transition: background 0.15s, color 0.15s;
+}
+.dynamic-hint.warn {
+  background: rgba(255, 149, 0, 0.18);
+  color: #8a5200;
+}
+.dynamic-hint b { font-weight: 600; }
+
+@media (prefers-color-scheme: dark) {
+  .dynamic-hint.warn { color: #ffb74d; }
+  .limits-note { background: rgba(255, 149, 0, 0.12); }
+}
+
 .toggle-group {
   display: flex;
   gap: 8px;
@@ -256,7 +291,6 @@ textarea { resize: vertical; min-height: 120px; }
 .btn-reject { background: #ff3b30 !important; color: white !important; }
 .btn-schedule { background: #ff9500 !important; color: white !important; }
 
-/* Стили для блока выбора времени */
 .schedule-box {
   margin-top: 10px;
   padding: 10px;
@@ -265,6 +299,9 @@ textarea { resize: vertical; min-height: 120px; }
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+.schedule-box textarea {
+  margin-bottom: 4px;
 }
 .schedule-box button {
   padding: 10px;
@@ -299,7 +336,6 @@ textarea { resize: vertical; min-height: 120px; }
   margin-bottom: 4px;
 }
 
-/* FAQ стили */
 .faq-list { display: flex; flex-direction: column; gap: 8px; }
 details {
   background: var(--secondary-bg);
