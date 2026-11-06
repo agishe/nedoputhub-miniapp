@@ -28,8 +28,6 @@ function esc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// ============ УТИЛИТЫ ДЛЯ UI / ДИАЛОГОВ ============
-// window.confirm / window.prompt в Telegram WebApp не работают — используем tg.showConfirm.
 function tgConfirm(message) {
   return new Promise(function (resolve) {
     try {
@@ -108,6 +106,7 @@ async function boot() {
     }
 
     bindSubmitForm();
+    updateCharCounter();
     hide('loading');
     show('main');
   } catch (e) {
@@ -175,6 +174,18 @@ function renderFAQ() {
   });
 }
 
+function updateDynamicHint(hasFiles) {
+  const hint = $('media-limit-hint');
+  if (!hint) return;
+  if (hasFiles) {
+    hint.innerHTML = '⚠️ С медиа лимит текста — <b>1024</b> символа. Уберите файлы, если нужен длинный текст.';
+    hint.className = 'dynamic-hint warn';
+  } else {
+    hint.innerHTML = '📝 Файлов нет — можно до <b>4096</b> символов.';
+    hint.className = 'dynamic-hint';
+  }
+}
+
 function updateCharCounter() {
   const text = $('text').value;
   const files = $('files').files;
@@ -186,6 +197,7 @@ function updateCharCounter() {
   const res = $('submit-result');
 
   counter.textContent = len + ' / ' + limit;
+  updateDynamicHint(hasFiles);
 
   if (len > limit) {
     counter.classList.add('warning');
@@ -485,6 +497,15 @@ async function loadSchedule() {
         ta.rows = 4;
         ta.value = it.text || '';
 
+        const hint = document.createElement('div');
+        if (it.has_photo) {
+          hint.className = 'dynamic-hint warn';
+          hint.innerHTML = '⚠️ У поста есть медиа — лимит текста <b>1024</b> символа.';
+        } else {
+          hint.className = 'dynamic-hint';
+          hint.innerHTML = '📝 У поста нет медиа — можно до <b>4096</b> символов.';
+        }
+
         const saveBtn = document.createElement('button');
         saveBtn.textContent = 'Сохранить';
         saveBtn.style.background = '#34c759';
@@ -500,6 +521,7 @@ async function loadSchedule() {
         cancelBtn.onclick = function () { editor.remove(); };
 
         editor.appendChild(ta);
+        editor.appendChild(hint);
         editor.appendChild(saveBtn);
         editor.appendChild(cancelBtn);
         card.appendChild(editor);
@@ -604,7 +626,6 @@ async function loadStats() {
   }
 }
 
-// ============ ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ ОШИБОК ============
 window.addEventListener('unhandledrejection', function (e) {
   try { console.error('Unhandled rejection:', e.reason); } catch (_) {}
   try {
