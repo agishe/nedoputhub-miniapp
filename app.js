@@ -1,6 +1,10 @@
 const WORKER_URL = 'https://tg-proxy.nedoputhub.workers.dev';
 const tg = window.Telegram.WebApp;
 
+const MAX_TEXT_LEN = 32768;
+const MAX_FILES = 20;
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+
 const state = {
   user: null,
   mode: 'public',
@@ -12,7 +16,8 @@ const state = {
 
 const FAQ_DATA = [
   { q: "📸 Как отправить пост?", a: "Заполни форму на вкладке «Предложить»: выбери рубрики, добавь текст и медиа, затем нажми «Отправить». Пост уйдёт на проверку ИИ, а затем либо опубликуется, либо уйдёт админу." },
-  { q: "📏 Какие лимиты на текст?", a: "Без фото/видео можно до 4096 символов. С фото/видео — до 1024 символов (ограничение Telegram)." },
+  { q: "📏 Какие лимиты на текст?", a: "В Mini App можно до 32 768 символов независимо от наличия медиа. В боте (личные сообщения) лимит остаётся 4096 символов для текста и 1024 для подписи к медиа." },
+  { q: "📎 Сколько файлов можно прикрепить?", a: "В Mini App — до 20 файлов, каждый не более 50 МБ. В боте — до 10 файлов." },
   { q: "🕵️ Что значит «Анонимно»?", a: "В посте не будет твоего имени и @username, только подпись «👤 Автор: Пользователь-аноним»." },
   { q: "⏳ Почему пост на модерации?", a: "ИИ-модератор мог засомневаться (например, слишком короткий текст или медиа без описания). Админ проверит вручную в ближайшее время." },
   { q: "💬 Как связаться с автором?", a: "Напиши боту в личные сообщения команду /help и выбери «Связаться с автором», либо используй кнопку в основном меню бота." },
@@ -178,10 +183,10 @@ function updateDynamicHint(hasFiles) {
   const hint = $('media-limit-hint');
   if (!hint) return;
   if (hasFiles) {
-    hint.innerHTML = '⚠️ С медиа лимит текста — <b>1024</b> символа. Уберите файлы, если нужен длинный текст.';
+    hint.innerHTML = '⚠️ С медиа лимит текста остаётся <b>32 768</b> символов.';
     hint.className = 'dynamic-hint warn';
   } else {
-    hint.innerHTML = '📝 Файлов нет — можно до <b>4096</b> символов.';
+    hint.innerHTML = '📝 Файлов нет — можно до <b>32 768</b> символов.';
     hint.className = 'dynamic-hint';
   }
 }
@@ -190,22 +195,19 @@ function updateCharCounter() {
   const text = $('text').value;
   const files = $('files').files;
   const hasFiles = files && files.length > 0;
-  const limit = hasFiles ? 1024 : 4096;
   const len = text.length;
   const counter = $('char-counter');
   const btn = $('submit-btn');
   const res = $('submit-result');
 
-  counter.textContent = len + ' / ' + limit;
+  counter.textContent = len + ' / ' + MAX_TEXT_LEN;
   updateDynamicHint(hasFiles);
 
-  if (len > limit) {
+  if (len > MAX_TEXT_LEN) {
     counter.classList.add('warning');
     btn.disabled = true;
     res.className = 'result err';
-    res.textContent = hasFiles
-      ? '❌ С фото/видео текст не может превышать 1024 символа. Сократите текст или удалите файлы.'
-      : '❌ Текст не может превышать 4096 символов. Пожалуйста, сократите его.';
+    res.textContent = '❌ Текст не может превышать 32 768 символов.';
   } else {
     counter.classList.remove('warning');
     btn.disabled = false;
@@ -227,24 +229,39 @@ function bindSubmitForm() {
     };
   });
 
-  $('text').addEventListener('input', updateCharCounter);
+  $('text').addEventListener('input', function () {
+    if (this.value.length > MAX_TEXT_LEN) {
+      this.value = this.value.slice(0, MAX_TEXT_LEN);
+    }
+    updateCharCounter();
+  });
 
   $('files').onchange = function (e) {
     const files = Array.from(e.target.files || []);
     const prev = $('files-preview');
     prev.innerHTML = '';
-    if (files.length > 10) {
-      prev.innerHTML = '<span class="err">Не более 10 файлов</span>';
-      updateCharCounter();
-      return;
+    const errors = [];
+
+    if (files.length > MAX_FILES) {
+      errors.push('Не более ' + MAX_FILES + ' файлов');
     }
+
     files.forEach(function (f) {
+      if (f.size > MAX_FILE_SIZE) {
+        errors.push('Файл «' + f.name + '» больше 50 МБ');
+        return;
+      }
       const d = document.createElement('div');
       d.className = 'file-item';
       d.textContent = (f.type.indexOf('video') === 0 ? '🎥 ' : '🖼 ') + f.name
         + ' (' + (f.size / 1024 / 1024).toFixed(1) + ' МБ)';
       prev.appendChild(d);
     });
+
+    if (errors.length) {
+      prev.innerHTML = errors.map(function (x) { return '<div class="err">❌ ' + esc(x) + '</div>'; }).join('');
+      e.target.value = '';
+    }
     updateCharCounter();
   };
 
@@ -259,6 +276,12 @@ function bindSubmitForm() {
     if (!text && files.length === 0) {
       res.className = 'result err';
       res.textContent = '❌ Добавь текст или медиа';
+      return;
+    }
+
+    if (text.length > MAX_TEXT_LEN) {
+      res.className = 'result err';
+      res.textContent = '❌ Текст превышает 32 768 символов.';
       return;
     }
 
@@ -279,8 +302,8 @@ function bindSubmitForm() {
       });
 
       if (!submit.ok) {
-         if (submit.error === 'too_long_media') throw new Error('Текст с медиа не может превышать 1024 символа.');
-         if (submit.error === 'too_long_text') throw new Error('Текст не может превышать 4096 символов.');
+         if (submit.error === 'too_long_media') throw new Error('Текст с медиа не может превышать 1024 символа (бот).');
+         if (submit.error === 'too_long_text') throw new Error('Текст не может превышать 4096 символов (бот).');
          if (submit.error === 'timeout') throw new Error('Сервер не ответил вовремя. Возможно, пост ушел на проверку, проверь чат с ботом.');
          throw new Error(submit.detail || submit.error || 'Ошибка сервера');
       }
@@ -498,13 +521,8 @@ async function loadSchedule() {
         ta.value = it.text || '';
 
         const hint = document.createElement('div');
-        if (it.has_photo) {
-          hint.className = 'dynamic-hint warn';
-          hint.innerHTML = '⚠️ У поста есть медиа — лимит текста <b>1024</b> символа.';
-        } else {
-          hint.className = 'dynamic-hint';
-          hint.innerHTML = '📝 У поста нет медиа — можно до <b>4096</b> символов.';
-        }
+        hint.className = 'dynamic-hint';
+        hint.innerHTML = '📝 До <b>32 768</b> символов.';
 
         const saveBtn = document.createElement('button');
         saveBtn.textContent = 'Сохранить';
