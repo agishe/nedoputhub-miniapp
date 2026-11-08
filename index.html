@@ -35,8 +35,8 @@
 
       <div class="limits-note">
         📝 <b>Как оформить пост:</b> выберите режим и рубрики, добавьте фото/видео, затем напишите текст.<br>
-        ⚠️ <b>Лимит текста зависит от медиа:</b> без файлов — до <b>4096</b> символов, с медиа — до <b>1024</b> символов (ограничение Telegram).<br>
-        📎 Файлов — до 10, каждый ≤ 50 МБ.
+        ⚠️ <b>Лимиты Rich-поста:</b> до <b>32 768</b> символов, до <b>20</b> файлов, каждый ≤ <b>50 МБ</b>.<br>
+        📎 Текст и медиа не отнимают лимиты друг у друга.
       </div>
 
       <label>Режим авторства</label>
@@ -54,14 +54,14 @@
       <label>Другие страны / города <span class="hint">(через запятую)</span></label>
       <input type="text" id="geo-custom" placeholder="Например: Грузия, Тбилиси">
 
-      <label>Фото / видео <span class="hint">(до 10 файлов, ≤50 МБ каждый)</span></label>
+      <label>Фото / видео <span class="hint">(до 20 файлов, ≤50 МБ каждый)</span></label>
       <input type="file" id="files" multiple accept="image/*,video/*">
       <div id="files-preview" class="files-preview"></div>
-      <div id="media-limit-hint" class="dynamic-hint">📝 Файлов нет — можно до <b>4096</b> символов.</div>
+      <div id="media-limit-hint" class="dynamic-hint">📝 Файлов нет — можно до <b>32 768</b> символов.</div>
 
       <label>Текст поста</label>
       <textarea id="text" rows="6" placeholder="Расскажи о своём путешествии..."></textarea>
-      <div class="char-counter" id="char-counter">0 / 4096</div>
+      <div class="char-counter" id="char-counter">0 / 32768</div>
 
       <button id="submit-btn" class="primary">Отправить</button>
       
