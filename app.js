@@ -24,6 +24,138 @@ const FAQ_DATA = [
   { q: "📭 Почему поста нет в канале?", a: "Возможно, он ещё на модерации, отклонён админом, или не прошёл проверку на спам/офтоп." }
 ];
 
+// ============ ПРОГРЕСС-БАР С МАШИНКОЙ ============
+const SKY_EMOJI = ['☀️', '☁️', '🌤', '⛅', '🌥', '🌈'];
+const GROUND_EMOJI = ['🏠', '🌳', '🏞️', '⛰️', '🌲', '🏡', '🌾'];
+let progressTimer = null;
+
+function randRange(min, max) {
+  return min + Math.random() * (max - min);
+}
+
+function randEmoji(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function populateDriveScene() {
+  const sky = document.getElementById('drive-sky');
+  const ground = document.getElementById('drive-ground');
+  if (!sky || !ground) return;
+  sky.innerHTML = '';
+  ground.innerHTML = '';
+
+  const skyCount = 4 + Math.floor(Math.random() * 2);
+  for (let i = 0; i < skyCount; i++) {
+    const s = document.createElement('span');
+    s.textContent = randEmoji(SKY_EMOJI);
+    s.style.top = randRange(0, 12).toFixed(1) + 'px';
+    s.style.fontSize = randRange(12, 20).toFixed(0) + 'px';
+    s.style.animationDuration = randRange(6, 9).toFixed(2) + 's';
+    s.style.animationDelay = randRange(0, 4).toFixed(2) + 's';
+    sky.appendChild(s);
+  }
+
+  const groundCount = 5 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < groundCount; i++) {
+    const s = document.createElement('span');
+    s.textContent = randEmoji(GROUND_EMOJI);
+    s.style.top = randRange(0, 8).toFixed(1) + 'px';
+    s.style.fontSize = randRange(12, 18).toFixed(0) + 'px';
+    s.style.animationDuration = randRange(2.2, 3.2).toFixed(2) + 's';
+    s.style.animationDelay = randRange(0, 3).toFixed(2) + 's';
+    ground.appendChild(s);
+  }
+}
+
+function showProgress(labelText) {
+  if (progressTimer) {
+    clearTimeout(progressTimer);
+    progressTimer = null;
+  }
+  const wrap = document.getElementById('drive-progress');
+  const label = document.getElementById('drive-label');
+  const car = document.getElementById('drive-car');
+  if (!wrap || !label || !car) return;
+
+  // Сброс машинки в исходное состояние
+  car.style.animation = '';
+  car.style.left = '';
+  car.style.transition = '';
+  car.style.transform = '';
+  car.classList.remove('paused');
+
+  const road = document.querySelector('.drive-road');
+  if (road) road.style.animationPlayState = '';
+
+  label.textContent = labelText || 'Отправка...';
+  label.className = 'drive-label';
+
+  populateDriveScene();
+  wrap.classList.remove('hidden');
+}
+
+function updateProgressLabel(labelText) {
+  const label = document.getElementById('drive-label');
+  if (label) label.textContent = labelText;
+}
+
+function hideProgress() {
+  const wrap = document.getElementById('drive-progress');
+  if (wrap) wrap.classList.add('hidden');
+}
+
+function finishProgress(success) {
+  const car = document.getElementById('drive-car');
+  const label = document.getElementById('drive-label');
+  const scene = document.querySelector('.drive-scene');
+  if (!car || !label || !scene) {
+    if (progressTimer) clearTimeout(progressTimer);
+    progressTimer = setTimeout(hideProgress, 800);
+    return;
+  }
+
+  // 1) Остановить пейзаж и дорогу
+  document.querySelectorAll('.drive-sky span, .drive-ground span').forEach(function (s) {
+    s.style.animationPlayState = 'paused';
+  });
+  const road = document.querySelector('.drive-road');
+  if (road) road.style.animationPlayState = 'paused';
+
+  // 2) Зафиксировать текущую позицию машинки (до снятия анимации)
+  const sceneRect = scene.getBoundingClientRect();
+  const carRect = car.getBoundingClientRect();
+  const currentLeft = Math.max(0, carRect.left - sceneRect.left);
+
+  // 3) Снять CSS-анимацию и поставить текущую позицию явно
+  car.style.animation = 'none';
+  car.style.left = currentLeft + 'px';
+
+  // 4) Форсировать reflow, чтобы браузер "увидел" новое значение
+  void car.offsetWidth;
+
+  // 5) Плавно доехать до финиша
+  const targetLeft = Math.max(currentLeft, sceneRect.width - 40);
+  car.style.transition = 'left 0.6s ease-out';
+  car.style.left = targetLeft + 'px';
+
+  // 6) Метка
+  if (success) {
+    label.textContent = '🏁 Готово!';
+    label.className = 'drive-label ok';
+  } else {
+    label.textContent = '❌ Ошибка';
+    label.className = 'drive-label err';
+  }
+
+  // 7) Скрыть через 1.2 сек
+  if (progressTimer) clearTimeout(progressTimer);
+  progressTimer = setTimeout(function () {
+    hideProgress();
+    progressTimer = null;
+  }, 1200);
+}
+
+// ============ БАЗОВЫЕ УТИЛИТЫ ============
 function $(id) { return document.getElementById(id); }
 function show(id) { $(id).classList.remove('hidden'); }
 function hide(id) { $(id).classList.add('hidden'); }
@@ -86,6 +218,17 @@ async function uploadFile(file) {
   fd.append('file', file);
   const resp = await fetch(WORKER_URL + '/mini/upload', { method: 'POST', body: fd });
   return resp.json().catch(function () { return { ok: false, error: 'bad_json' }; });
+}
+
+async function uploadMedia(files) {
+  const media = [];
+  for (let i = 0; i < files.length; i++) {
+    updateProgressLabel('Загрузка файла ' + (i + 1) + ' из ' + files.length + '...');
+    const up = await uploadFile(files[i]);
+    if (!up.ok) throw new Error('upload: ' + (up.error || '?'));
+    media.push({ type: up.media_type, file_id: up.file_id });
+  }
+  return media;
 }
 
 async function boot() {
@@ -286,9 +429,10 @@ function bindSubmitForm() {
     }
 
     btn.disabled = true;
+    showProgress('Подготовка...');
     try {
-      const media = await uploadMedia(files, res);
-      res.textContent = 'Отправка (это может занять до 30 секунд)...';
+      const media = await uploadMedia(files);
+      updateProgressLabel('Отправка на сервер (до 30 секунд)...');
 
       const custom = $('geo-custom').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
       const submit = await api('/mini/submit', 'POST', {
@@ -302,16 +446,17 @@ function bindSubmitForm() {
       });
 
       if (!submit.ok) {
-         if (submit.error === 'too_long_media') throw new Error('Текст с медиа не может превышать 1024 символа (бот).');
-         if (submit.error === 'too_long_text') throw new Error('Текст не может превышать 4096 символов (бот).');
+         if (submit.error === 'too_long_text') throw new Error('Текст не может превышать 32 768 символов.');
          if (submit.error === 'timeout') throw new Error('Сервер не ответил вовремя. Возможно, пост ушел на проверку, проверь чат с ботом.');
          throw new Error(submit.detail || submit.error || 'Ошибка сервера');
       }
 
+      finishProgress(true);
       res.className = 'result ok';
       res.textContent = '✅ Пост обработан! Проверь чат с ботом (там должна быть отбивка).';
       clearForm();
     } catch (e) {
+      finishProgress(false);
       res.className = 'result err';
       res.textContent = '❌ ' + e.message;
     } finally {
@@ -341,9 +486,10 @@ function bindSubmitForm() {
     }
 
     btn.disabled = true;
+    showProgress('Подготовка отложки...');
     try {
-      const media = await uploadMedia(files, res);
-      res.textContent = 'Отложка...';
+      const media = await uploadMedia(files);
+      updateProgressLabel('Сохраняю отложку...');
       const custom = $('geo-custom').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
       const submit = await api('/mini/admin/schedule/create', 'POST', {
         text: text,
@@ -357,28 +503,19 @@ function bindSubmitForm() {
 
       if (!submit.ok) throw new Error(submit.detail || submit.error || 'Ошибка сервера');
 
+      finishProgress(true);
       res.className = 'result ok';
       res.textContent = '✅ Пост успешно отложен!';
       clearForm();
       $('sched-inputs').classList.add('hidden');
     } catch (e) {
+      finishProgress(false);
       res.className = 'result err';
       res.textContent = '❌ ' + e.message;
     } finally {
       btn.disabled = false;
     }
   };
-}
-
-async function uploadMedia(files, resEl) {
-  const media = [];
-  for (let i = 0; i < files.length; i++) {
-    resEl.textContent = 'Загрузка ' + (i + 1) + '/' + files.length + '...';
-    const up = await uploadFile(files[i]);
-    if (!up.ok) throw new Error('upload: ' + (up.error || '?'));
-    media.push({ type: up.media_type, file_id: up.file_id });
-  }
-  return media;
 }
 
 function clearForm() {
