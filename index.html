@@ -64,7 +64,18 @@
       <div class="char-counter" id="char-counter">0 / 32768</div>
 
       <button id="submit-btn" class="primary">Отправить</button>
-      
+
+      <div id="drive-progress" class="drive-progress hidden">
+        <div class="drive-label" id="drive-label">Загрузка...</div>
+        <div class="drive-scene">
+          <div class="drive-sky" id="drive-sky"></div>
+          <div class="drive-ground" id="drive-ground"></div>
+          <div class="drive-road"></div>
+          <div class="drive-finish">🏁</div>
+          <div class="drive-car" id="drive-car">🚗</div>
+        </div>
+      </div>
+
       <div id="admin-schedule-block" class="hidden" style="margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--secondary-bg);">
         <button id="show-sched-btn" class="primary" style="background: #ff9500; margin-top: 0;">⏰ Отложить</button>
         <div id="sched-inputs" class="hidden" style="margin-top: 12px;">
@@ -73,7 +84,7 @@
           <button id="admin-sched-confirm" class="primary" style="background: #ff9500; margin-top: 12px;">Подтвердить отложку</button>
         </div>
       </div>
-      
+
       <div id="submit-result" class="result"></div>
     </section>
 
