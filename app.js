@@ -25,134 +25,75 @@ const FAQ_DATA = [
 ];
 
 // ============ ПРОГРЕСС-БАР С МАШИНКОЙ ============
-const SKY_EMOJI = ['☀️', '☁️', '🌤', '⛅', '🌥', '🌈'];
-const GROUND_EMOJI = ['🏠', '🌳', '🏞️', '⛰️', '🌲', '🏡', '🌾'];
 let progressTimer = null;
-
-function randRange(min, max) {
-  return min + Math.random() * (max - min);
-}
-
-function randEmoji(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
-
-function populateDriveScene() {
-  const sky = document.getElementById('drive-sky');
-  const ground = document.getElementById('drive-ground');
-  if (!sky || !ground) return;
-  sky.innerHTML = '';
-  ground.innerHTML = '';
-
-  const skyCount = 4 + Math.floor(Math.random() * 2);
-  for (let i = 0; i < skyCount; i++) {
-    const s = document.createElement('span');
-    s.textContent = randEmoji(SKY_EMOJI);
-    s.style.top = randRange(0, 12).toFixed(1) + 'px';
-    s.style.fontSize = randRange(12, 20).toFixed(0) + 'px';
-    s.style.animationDuration = randRange(6, 9).toFixed(2) + 's';
-    s.style.animationDelay = randRange(0, 4).toFixed(2) + 's';
-    sky.appendChild(s);
-  }
-
-  const groundCount = 5 + Math.floor(Math.random() * 3);
-  for (let i = 0; i < groundCount; i++) {
-    const s = document.createElement('span');
-    s.textContent = randEmoji(GROUND_EMOJI);
-    s.style.top = randRange(0, 8).toFixed(1) + 'px';
-    s.style.fontSize = randRange(12, 18).toFixed(0) + 'px';
-    s.style.animationDuration = randRange(2.2, 3.2).toFixed(2) + 's';
-    s.style.animationDelay = randRange(0, 3).toFixed(2) + 's';
-    ground.appendChild(s);
-  }
-}
+let progressAnimTimer = null;
 
 function showProgress(labelText) {
-  if (progressTimer) {
-    clearTimeout(progressTimer);
-    progressTimer = null;
-  }
-  const wrap = document.getElementById('drive-progress');
-  const label = document.getElementById('drive-label');
-  const car = document.getElementById('drive-car');
-  if (!wrap || !label || !car) return;
+  if (progressTimer) { clearTimeout(progressTimer); progressTimer = null; }
+  if (progressAnimTimer) { clearInterval(progressAnimTimer); progressAnimTimer = null; }
 
-  // Сброс машинки в исходное состояние
-  car.style.animation = '';
-  car.style.left = '';
-  car.style.transition = '';
-  car.style.transform = '';
-  car.classList.remove('paused');
+  const wrap = $('drive-progress');
+  const label = $('drive-label');
+  const fill = $('progress-fill');
+  if (!wrap || !label || !fill) return;
 
-  const road = document.querySelector('.drive-road');
-  if (road) road.style.animationPlayState = '';
-
+  fill.className = 'progress-fill';
+  fill.style.width = '0%';
   label.textContent = labelText || 'Отправка...';
   label.className = 'drive-label';
-
-  populateDriveScene();
   wrap.classList.remove('hidden');
+
+  void fill.offsetWidth;
+
+  let w = 0;
+  progressAnimTimer = setInterval(function () {
+    if (w >= 90) {
+      clearInterval(progressAnimTimer);
+      progressAnimTimer = null;
+      return;
+    }
+    w += Math.max(0.3, (90 - w) * 0.06);
+    if (w > 90) w = 90;
+    fill.style.width = w + '%';
+  }, 250);
 }
 
 function updateProgressLabel(labelText) {
-  const label = document.getElementById('drive-label');
+  const label = $('drive-label');
   if (label) label.textContent = labelText;
 }
 
 function hideProgress() {
-  const wrap = document.getElementById('drive-progress');
+  const wrap = $('drive-progress');
   if (wrap) wrap.classList.add('hidden');
 }
 
 function finishProgress(success) {
-  const car = document.getElementById('drive-car');
-  const label = document.getElementById('drive-label');
-  const scene = document.querySelector('.drive-scene');
-  if (!car || !label || !scene) {
+  if (progressAnimTimer) { clearInterval(progressAnimTimer); progressAnimTimer = null; }
+
+  const fill = $('progress-fill');
+  const label = $('drive-label');
+  if (!fill || !label) {
     if (progressTimer) clearTimeout(progressTimer);
     progressTimer = setTimeout(hideProgress, 800);
     return;
   }
 
-  // 1) Остановить пейзаж и дорогу
-  document.querySelectorAll('.drive-sky span, .drive-ground span').forEach(function (s) {
-    s.style.animationPlayState = 'paused';
-  });
-  const road = document.querySelector('.drive-road');
-  if (road) road.style.animationPlayState = 'paused';
-
-  // 2) Зафиксировать текущую позицию машинки (до снятия анимации)
-  const sceneRect = scene.getBoundingClientRect();
-  const carRect = car.getBoundingClientRect();
-  const currentLeft = Math.max(0, carRect.left - sceneRect.left);
-
-  // 3) Снять CSS-анимацию и поставить текущую позицию явно
-  car.style.animation = 'none';
-  car.style.left = currentLeft + 'px';
-
-  // 4) Форсировать reflow, чтобы браузер "увидел" новое значение
-  void car.offsetWidth;
-
-  // 5) Плавно доехать до финиша
-  const targetLeft = Math.max(currentLeft, sceneRect.width - 40);
-  car.style.transition = 'left 0.6s ease-out';
-  car.style.left = targetLeft + 'px';
-
-  // 6) Метка
   if (success) {
+    fill.style.width = '100%';
     label.textContent = '🏁 Готово!';
     label.className = 'drive-label ok';
   } else {
+    fill.className = 'progress-fill err';
     label.textContent = '❌ Ошибка';
     label.className = 'drive-label err';
   }
 
-  // 7) Скрыть через 1.2 сек
   if (progressTimer) clearTimeout(progressTimer);
   progressTimer = setTimeout(function () {
     hideProgress();
     progressTimer = null;
-  }, 1200);
+  }, 1500);
 }
 
 // ============ БАЗОВЫЕ УТИЛИТЫ ============
